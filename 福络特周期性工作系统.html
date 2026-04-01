@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>福络特驻场人员周期性工作汇总系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; }
+        .header { background: white; border-radius: 16px; padding: 24px 32px; margin-bottom: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .header h1 { color: #1a1a2e; font-size: 28px; margin-bottom: 8px; }
+        .header .subtitle { color: #666; font-size: 14px; }
+        .current-time { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 12px 24px; border-radius: 30px; display: inline-block; margin-top: 16px; font-size: 16px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); text-align: center; transition: transform 0.3s; }
+        .stat-card:hover { transform: translateY(-4px); }
+        .stat-card .number { font-size: 36px; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .stat-card .label { color: #666; font-size: 14px; margin-top: 4px; }
+        .filters { background: white; border-radius: 16px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .filters-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+        .filter-group { display: flex; align-items: center; gap: 8px; }
+        .filter-group label { font-weight: 500; color: #333; white-space: nowrap; }
+        .filter-group select, .filter-group input { padding: 10px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; min-width: 120px; }
+        .btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .btn-secondary { background: #f0f0f0; color: #333; }
+        .btn-success { background: linear-gradient(135deg, #11998e, #38ef7d); color: white; }
+        .btn-danger { background: linear-gradient(135deg, #eb3349, #f45c43); color: white; }
+        .progress-section { background: white; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .progress-section h2 { color: #1a1a2e; margin-bottom: 20px; font-size: 20px; }
+        .unit-progress { margin-bottom: 20px; }
+        .unit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .unit-name { font-weight: 600; color: #333; }
+        .unit-stats { font-size: 14px; color: #666; }
+        .progress-bar { height: 24px; background: #f0f0f0; border-radius: 12px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 12px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 12px; color: white; font-size: 12px; font-weight: 600; }
+        .progress-fill.excellent { background: linear-gradient(90deg, #11998e, #38ef7d); }
+        .progress-fill.good { background: linear-gradient(90deg, #667eea, #764ba2); }
+        .progress-fill.warning { background: linear-gradient(90deg, #f093fb, #f5576c); }
+        .progress-fill.danger { background: linear-gradient(90deg, #eb3349, #f45c43); }
+        .tasks-container { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .tasks-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .tasks-header h2 { color: #1a1a2e; font-size: 20px; }
+        .task-count { background: #f0f0f0; padding: 6px 16px; border-radius: 20px; font-size: 14px; color: #666; }
+        .task-card { background: #fafafa; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; border-left: 4px solid #667eea; transition: all 0.3s; }
+        .task-card:hover { background: #f0f0f0; transform: translateX(4px); }
+        .task-card.completed { border-left-color: #38ef7d; background: #f0fff4; }
+        .task-card.completed .task-content { opacity: 0.7; text-decoration: line-through; }
+        .task-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        .task-info { flex: 1; }
+        .task-badges { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .badge-unit { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .badge-shift { background: #e0e0e0; color: #333; }
+        .badge-shift.day { background: #fff3e0; color: #e65100; }
+        .badge-shift.night { background: #1a237e; color: white; }
+        .badge-shift.general { background: #e8f5e9; color: #2e7d32; }
+        .badge-frequency { background: #f3e5f5; color: #7b1fa2; }
+        .task-module { font-weight: 600; color: #1a1a2e; font-size: 15px; margin-bottom: 4px; }
+        .task-content { color: #666; font-size: 14px; line-height: 1.6; }
+        .task-output { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd; font-size: 13px; color: #888; }
+        .task-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: 16px; }
+        .task-actions button { padding: 6px 12px; font-size: 12px; }
+        .complete-date { font-size: 12px; color: #38ef7d; margin-top: 4px; font-weight: 500; }
+        .history-record { font-size: 11px; color: #999; margin-top: 4px; }
+        .edit-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .edit-modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 16px; padding: 32px; max-width: 650px; width: 90%; max-height: 85vh; overflow-y: auto; }
+        .modal-content h3 { margin-bottom: 24px; color: #1a1a2e; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #333; }
+        .form-group input, .form-group textarea { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: inherit; }
+        .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+        .history-panel { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
+        .history-panel h3 { margin-bottom: 16px; color: #1a1a2e; font-size: 18px; }
+        .history-item { background: #f9f9f9; padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+        .history-item .date { color: #667eea; font-weight: 500; }
+        .date-navigation { display: flex; align-items: center; gap: 16px; padding: 16px; background: #f8f9fa; border-radius: 12px; }
+        .date-display { font-size: 18px; font-weight: 600; color: #333; flex: 1; text-align: center; }
+        .no-tasks { text-align: center; padding: 60px 20px; color: #999; }
+        .save-indicator { position: fixed; bottom: 20px; right: 20px; background: #38ef7d; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 500; opacity: 0; transform: translateY(20px); transition: all 0.3s; }
+        .save-indicator.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 福络特驻场人员周期性工作汇总系统</h1>
+            <div class="subtitle">支持编辑、筛选、进度追踪与历史倒查 | 每日任务每天自动重置</div>
+            <div class="current-time" id="currentTime"></div>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="number" id="totalTasks">0</div><div class="label">总任务数</div></div>
+            <div class="stat-card"><div class="number" id="completedTasks">0</div><div class="label">已完成</div></div>
+            <div class="stat-card"><div class="number" id="pendingTasks">0</div><div class="label">待完成</div></div>
+            <div class="stat-card"><div class="number" id="completionRate">0%</div><div class="label">完成率</div></div>
+        </div>
+        <div class="filters">
+            <div class="filters-row">
+                <div class="filter-group"><label>📅 时间:</label><select id="timeFilter" onchange="onTimeFilterChange()"><option value="daily">今日任务</option><option value="weekly">本周任务</option><option value="monthly">本月任务</option><option value="quarterly">本季度任务</option><option value="yearly">本年任务</option><option value="all">全部显示</option></select></div>
+                <div class="filter-group"><label>👤 岗位:</label><select id="unitFilter" onchange="renderAll()"><option value="all">全部岗位</option></select></div>
+                <div class="filter-group"><label>🌙 班次:</label><select id="shiftFilter" onchange="renderAll()"><option value="all">全部班次</option><option value="day">☀️ 白班</option><option value="night">🌙 夜班</option><option value="general">📋 通用</option></select></div>
+                <div class="filter-group"><label>📊 频次:</label><select id="frequencyFilter" onchange="renderAll()"><option value="all">全部频次</option><option value="每日">每日</option><option value="每周">每周</option><option value="每月">每月</option><option value="季度">季度</option><option value="年度">年度</option><option value="按需">按需</option></select></div>
+                <div class="filter-group"><label>✅ 状态:</label><select id="statusFilter" onchange="renderAll()"><option value="all">全部状态</option><option value="completed">已完成</option><option value="pending">待完成</option></select></div>
+                <div class="filter-group"><label>🔍 搜索:</label><input type="text" id="searchInput" placeholder="搜索..." oninput="renderAll()"></div>
+                <button class="btn btn-secondary" onclick="resetFilters()">重置</button>
+                <button class="btn btn-success" onclick="exportData()">导出</button>
+            </div>
+        </div>
+        <div class="filters" id="dateNavigation"><div class="date-navigation">
+            <button class="btn btn-secondary" onclick="navigateDate(-1)">◀ 上一时段</button>
+            <div class="date-display" id="dateDisplay"></div>
+            <button class="btn btn-secondary" onclick="navigateDate(1)">下一时段 ▶</button>
+            <button class="btn btn-primary" onclick="goToToday()">回到当前</button>
+        </div></div>
+        <div class="progress-section"><h2>📈 各岗位任务完成进度</h2><div id="unitProgressContainer"></div></div>
+        <div class="tasks-container"><div class="tasks-header"><h2>📝 任务列表</h2><span class="task-count" id="taskCount">共 0 条任务</span></div><div id="tasksList"></div></div>
+    </div>
+    <div class="edit-modal" id="editModal">
+        <div class="modal-content">
+            <h3>✏️ 任务详情</h3>
+            <input type="hidden" id="editTaskId">
+            <div class="form-group"><label>岗位:</label><input type="text" id="editUnit" readonly></div>
+            <div class="form-group"><label>班次:</label><input type="text" id="editShift" readonly></div>
+            <div class="form-group"><label>频次:</label><input type="text" id="editFrequency" readonly></div>
+            <div class="form-group"><label>工作模块:</label><input type="text" id="editModule" readonly></div>
+            <div class="form-group"><label>详细执行内容:</label><textarea id="editContent"></textarea></div>
+            <div class="form-group"><label>输出物/表单:</label><input type="text" id="editOutput"></div>
+            <div class="modal-actions"><button class="btn btn-secondary" onclick="closeEditModal()">关闭</button><button class="btn btn-primary" onclick="saveTask()">保存</button></div>
+            <div class="history-panel" id="historyPanel"><h3>📜 完成历史记录</h3><div id="historyList"></div></div>
+        </div>
+    </div>
+    <div class="save-indicator" id="saveIndicator">✓ 已自动保存</div>
+    <script>
+        let tasksData = [];
+        let completionHistory = {};
+        let currentDateOffset = 0;
+        let currentDate = new Date();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            updateTimeDisplay();
+            setInterval(updateTimeDisplay, 1000);
+            initFilters();
+            renderAll();
+        });
+
+        function loadData() {
+            const saved = localStorage.getItem('fuluote_tasks_v5');
+            const savedHistory = localStorage.getItem('fuluote_history_v5');
+            if (saved) { tasksData = JSON.parse(saved); }
+            else { tasksData = [{"id": 1, "unit": "文员", "frequency": "每日", "module": "考勤与排班", "content": "核对当日白/夜班人员到岗情况，统计缺勤/迟到", "output": "《岗位配置表》"}, {"id": 2, "unit": "文员", "frequency": "每日", "module": "考勤与排班", "content": "更新《出勤表》并公示", "output": "《出勤统计表》"}, {"id": 3, "unit": "文员", "frequency": "每日", "module": "考勤与排班", "content": "每日出勤人员工时记录", "output": "工时表"}, {"id": 4, "unit": "文员", "frequency": "每日", "module": "信息传达", "content": "接收上级通知并发布至各班组群", "output": ""}, {"id": 5, "unit": "文员", "frequency": "每日", "module": "信息传达", "content": "传达甲方现场临时指令/培训", "output": ""}, {"id": 6, "unit": "文员", "frequency": "每日", "module": "数据维护", "content": "更新人员花名册（入职/离职/调动/请假）", "output": "《人员花名册更新》"}, {"id": 7, "unit": "文员", "frequency": "每日", "module": "数据维护", "content": "建立员工入职/离职档案", "output": "《入职资料制作及制卡申请邮件》"}, {"id": 8, "unit": "文员", "frequency": "每日", "module": "数据维护", "content": "每日数据汇总上传（储能运营区域、储能施工区域、仓库）", "output": "《离职注销邮件》"}, {"id": 9, "unit": "文员", "frequency": "每日", "module": "数据维护", "content": "每日未出出门单汇总反馈", "output": "《每日数据扫码上传》"}, {"id": 10, "unit": "文员", "frequency": "每日", "module": "数据维护", "content": "SharePoint供应商管理文件夹维护（入职资料、离职手续、花名册、驻场经理夜查等更新上传）&百度网盘维护", "output": "《未出出门单反馈邮件》"}, {"id": 11, "unit": "文员", "frequency": "每日", "module": "权限申请", "content": "驻场所有人员权限申请及关闭（门禁、拍照）", "output": "《权限/账号申请及关闭邮件》"}, {"id": 12, "unit": "文员", "frequency": "每日", "module": "权限申请", "content": "驻场所有人员账号维护（Orbit、My EHS、特充实）", "output": "《权限/账号申请及关闭邮件》"}, {"id": 13, "unit": "文员", "frequency": "每日", "module": "文档工作", "content": "每日值班日志撰写发送", "output": "《日报》"}, {"id": 14, "unit": "文员", "frequency": "每日", "module": "文档工作", "content": "每日周期性工作完成情况汇总发送", "output": "《每日周期性工作》"}, {"id": 15, "unit": "文员", "frequency": "每日", "module": "文档工作", "content": "各类纸质文件打印补充（储能/仓库门岗登记表、签到表等）", "output": "纸质单据"}, {"id": 16, "unit": "文员", "frequency": "每周", "module": "考勤汇总", "content": "制作三期基建《周工单》并提交经理审核", "output": "《周工单》"}, {"id": 17, "unit": "文员", "frequency": "每周", "module": "物资盘点", "content": "每周储能、仓库临时证件盘点及防拍贴消耗情况", "output": "《物资消耗汇总统计》"}, {"id": 18, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "每周运营周报撰写发送", "output": "《运营周报》"}, {"id": 19, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "每周三期周报撰写发送", "output": "《基建周报》"}, {"id": 20, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "每周周期性工作完成情况汇总发送", "output": "《每周周期性工作》"}, {"id": 21, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "每周周培训数据发送邮件", "output": "《周培训数据邮件》"}, {"id": 22, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "应急演练形成报告发送", "output": "《应急演练邮件》"}, {"id": 23, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "周巡检、甲方值班等巡查问题项整改反馈", "output": "《问题检查反馈》"}, {"id": 24, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "主管双周会PPT撰写（双周）", "output": "《双周会汇报PPT》"}, {"id": 25, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "主管双周会会议纪要撰写发送（双周）", "output": "《双周会会议纪要》"}, {"id": 26, "unit": "文员", "frequency": "每周", "module": "文档工作", "content": "岗位自查照片汇总发送（不定时）", "output": "《岗位自查》"}, {"id": 27, "unit": "文员", "frequency": "每月", "module": "考勤汇总", "content": "团队月度工时核对提交", "output": "《月工时》"}, {"id": 28, "unit": "文员", "frequency": "每月", "module": "考勤汇总", "content": "月度费用回复反馈", "output": "《费用回复》"}, {"id": 29, "unit": "文员", "frequency": "每月", "module": "物资盘点", "content": "对讲机盘点反馈", "output": "《对讲机盘点》"}, {"id": 30, "unit": "文员", "frequency": "每月", "module": "物资盘点", "content": "平板盘点反馈", "output": "《平板盘点》"}, {"id": 31, "unit": "文员", "frequency": "每月", "module": "文档工作", "content": "月度工作汇总", "output": "《月报》"}, {"id": 32, "unit": "文员", "frequency": "每月", "module": "文档工作", "content": "每月周期性工作完成情况汇总发送", "output": "《每月周期性工作》"}, {"id": 33, "unit": "文员", "frequency": "每月", "module": "文档工作", "content": "宿舍检查情况汇总发送", "output": "《宿舍检查》"}, {"id": 34, "unit": "文员", "frequency": "每月", "module": "文档工作", "content": "电瓶车检查情况汇总发送", "output": "《电瓶车检查》"}, {"id": 35, "unit": "文员", "frequency": "每月", "module": "文档工作", "content": "月度会议纪要撰写发送", "output": "《月度会议纪要》"}, {"id": 36, "unit": "文员", "frequency": "每月", "module": "文档工作", "content": "月度分享会PPT撰写发送", "output": "《月度分享会汇报》"}, {"id": 37, "unit": "文员", "frequency": "每月", "module": "文档工作", "content": "节前检查汇总及整改反馈", "output": "《节前检查反馈》"}, {"id": 38, "unit": "文员", "frequency": "季度", "module": "文档工作", "content": "季度工作汇总", "output": "《季报》"}, {"id": 39, "unit": "文员", "frequency": "季度", "module": "文档工作", "content": "每季度周期性工作完成情况汇总发送", "output": "《每季度周期性工作》"}, {"id": 40, "unit": "文员", "frequency": "季度", "module": "文档工作", "content": "季度会议纪要撰写发送", "output": "《季度会议纪要》"}, {"id": 41, "unit": "文员", "frequency": "年度", "module": "文档工作", "content": "年度工作汇总", "output": "《年报》"}, {"id": 42, "unit": "文员", "frequency": "年度", "module": "文档工作", "content": "每年度周期性工作完成情况汇总发送", "output": "《每年度周期性工作》"}, {"id": 43, "unit": "文员", "frequency": "年度", "module": "文档工作", "content": "团队年度复训反馈", "output": "《年度复训反馈》"}, {"id": 44, "unit": "培训主管", "frequency": "每日", "module": "岗位巡查", "content": "抽查队员岗位操作及岗位职责相关内容，检查队员履职情况，确保队员明确岗位操作内容", "output": "每日巡查报告"}, {"id": 45, "unit": "培训主管", "frequency": "每日", "module": "问题整改", "content": "根据运营主管及驻场经理的反馈，对队员现场不足之处进行复训", "output": "每日巡查报告"}, {"id": 46, "unit": "培训主管", "frequency": "每周", "module": "日常培训完成", "content": "按周计划完成日常培训计划", "output": "《福络特培训数据记录》"}, {"id": 47, "unit": "培训主管", "frequency": "每周", "module": "日常实操完成", "content": "按周计划完成日常实操计划，针对不足项进行复盘", "output": "《福络特培训数据记录》"}, {"id": 48, "unit": "培训主管", "frequency": "每周", "module": "数据上传", "content": "每周五9点前上传周培训数据至CN站点", "output": "CN站点"}, {"id": 49, "unit": "培训主管", "frequency": "每周", "module": "文件管理", "content": "每周五12点前整理汇总周培训签到表文件", "output": "邮件反馈"}, {"id": 50, "unit": "培训主管", "frequency": "每周", "module": "计划制定", "content": "周五12点前制定下周培训计划", "output": "邮件反馈"}, {"id": 51, "unit": "培训主管", "frequency": "每周", "module": "消防培训对接", "content": "每周日对接消防同事组织开展消防培训", "output": "每日巡查报告&《福络特培训数据记录》"}, {"id": 52, "unit": "培训主管", "frequency": "每月", "module": "特充实课程", "content": "按计划完成下发的特充实课程学习", "output": "邮件反馈"}, {"id": 53, "unit": "培训主管", "frequency": "每月", "module": "新队员能力评估", "content": "每月15号前反馈上月新队员培训及考核情况", "output": "邮件反馈"}, {"id": 54, "unit": "培训主管", "frequency": "每月", "module": "月培训数据统计", "content": "月报培训数据统计", "output": "月度报告"}, {"id": 55, "unit": "培训主管", "frequency": "季度", "module": "培训数据统计", "content": "季度报告培训数据统计", "output": "季度汇报"}, {"id": 56, "unit": "培训主管", "frequency": "季度", "module": "老队员能力评估", "content": "每季度对入职3个月以上员工进行能力评估，不足项进行复训直至达标", "output": "邮件反馈"}, {"id": 57, "unit": "培训主管", "frequency": "季度", "module": "供应商年度复训团队", "content": "根据要求对入职老队员进行年度复训", "output": "邮件反馈"}, {"id": 58, "unit": "培训主管", "frequency": "季度", "module": "出入库管理", "content": "管理仓库物资，形成可视化表格", "output": "《出入库明细表》"}, {"id": 59, "unit": "培训主管", "frequency": "季度", "module": "专项培训", "content": "根据现场实际情况制作专项培训课件，丰富课程储备", "output": "邮件反馈"}, {"id": 60, "unit": "培训主管", "frequency": "按需", "module": "新员工培训", "content": "新员工入职7天内完成岗位培训（含岗位基本实操、岗位职责、执勤装备及应急物资使用）", "output": "每日巡查报告"}, {"id": 61, "unit": "培训主管", "frequency": "按需", "module": "新员工考核", "content": "入职10天内完成岗位理论测试，14天内完成岗位基本实操考核，测试不合格人员进行复训后进行二次考核，直至考核合格", "output": "每日巡查报告&邮件反馈"}, {"id": 62, "unit": "培训主管", "frequency": "按需", "module": "培训资料优化", "content": "根据现场情况对培训资料进行形式、内容上的优化", "output": "邮件反馈"}, {"id": 63, "unit": "培训主管", "frequency": "按需", "module": "资料下发与回收", "content": "现场课件更新后第一时间进行打印下发至各岗位，同步回收旧版资料，避免混淆", "output": "岗位检查"}, {"id": 64, "unit": "培训主管", "frequency": "按需", "module": "问题整改", "content": "根据现场巡查出现的问题进行整改，对应进行宣导复训", "output": "邮件反馈"}, {"id": 65, "unit": "培训主管", "frequency": "按需", "module": "季节性/节前专项培训", "content": "节前（如春节、国庆）：开展相关培训，强化假期值班纪律与巡逻频次要求。\n换季时：针对季节特点（如夏季防汛防暑、冬季防冻防滑）开展培训", "output": "邮件反馈"}, {"id": 66, "unit": "运营主管（白）", "frequency": "每日", "module": "班前/后会", "content": "班前：检查仪容仪表、制服帽子穿戴、强调当日重点，酒精检测", "output": "《班前/后会记录表》"}, {"id": 67, "unit": "运营主管（白）", "frequency": "每日", "module": "班前/后会", "content": "分配人员到具体岗位", "output": ""}, {"id": 68, "unit": "运营主管（白）", "frequency": "每日", "module": "班前/后会", "content": "班后：打卡拍照，总结当日问题、表扬/批评、交接注意事项", "output": ""}, {"id": 69, "unit": "运营主管（白）", "frequency": "每日", "module": "人员出勤", "content": "现场出勤人员安排，合理分配出勤人员及岗位", "output": "排班表"}, {"id": 70, "unit": "运营主管（白）", "frequency": "每日", "module": "工作交接", "content": "每日完成现场白夜班运营主管交接", "output": "交接项"}, {"id": 71, "unit": "运营主管（白）", "frequency": "每日", "module": "数据统计", "content": "每日统计汇总当班各岗位勤务数据", "output": "交接项"}, {"id": 72, "unit": "运营主管（白）", "frequency": "每日", "module": "现场巡查", "content": "每日随机巡查岗位状态（是否脱岗、精神状态、值班记录）", "output": "《巡查记录表》"}, {"id": 73, "unit": "运营主管（白）", "frequency": "每日", "module": "现场巡查", "content": "检查仪容仪表、对讲机通话质量、记录仪酒精检测棒时间、装备佩戴", "output": ""}, {"id": 74, "unit": "运营主管（白）", "frequency": "每日", "module": "现场巡查", "content": "处理岗位即时小问题", "output": ""}, {"id": 75, "unit": "运营主管（白）", "frequency": "每日", "module": "系统检查", "content": "当天My EHS未出出门单自查及询问，交接夜班", "output": "交接项"}, {"id": 76, "unit": "运营主管（白）", "frequency": "每日", "module": "现场巡查", "content": "随机抽查队员在岗情况、岗位操作流程及值班记录", "output": "《抽查记录》"}, {"id": 77, "unit": "运营主管（白）", "frequency": "每日", "module": "现场巡查", "content": "重点检查节假日值守质量", "output": ""}, {"id": 78, "unit": "运营主管（白）", "frequency": "每日", "module": "异常处置", "content": "处理突发事件（纠纷、违规、设备故障、讨薪、医疗事故）", "output": "《事件处理报告》"}, {"id": 79, "unit": "运营主管（白）", "frequency": "每日", "module": "异常处置", "content": "上报重大事件", "output": ""}, {"id": 80, "unit": "运营主管（白）", "frequency": "每周", "module": "技能培训", "content": "组织一次队列训练和应急模拟演练（防暴、消防、医疗、讨薪）", "output": "《训练签到表》、《演练记录》"}, {"id": 81, "unit": "运营主管（白）", "frequency": "每周", "module": "技能培训", "content": "针对本周高频问题开展微培训", "output": ""}, {"id": 82, "unit": "运营主管（白）", "frequency": "每周", "module": "技能培训", "content": "记录训练效果与人员表现", "output": ""}, {"id": 83, "unit": "运营主管（白）", "frequency": "每周", "module": "隐患整改", "content": "汇总巡查发现的安全隐患", "output": "《隐患整改清单》"}, {"id": 84, "unit": "运营主管（白）", "frequency": "每周", "module": "隐患整改", "content": "制定整改措施并上报", "output": ""}, {"id": 85, "unit": "运营主管（白）", "frequency": "每周", "module": "隐患整改", "content": "跟踪整改闭环情况", "output": ""}, {"id": 86, "unit": "运营主管（白）", "frequency": "每周", "module": "周巡检", "content": "联合甲方进行周度岗位检查", "output": "《整改通知单》"}, {"id": 87, "unit": "运营主管（白）", "frequency": "每周", "module": "周巡检", "content": "针对问题点下发《整改通知单》", "output": ""}, {"id": 88, "unit": "运营主管（白）", "frequency": "每周", "module": "周巡检", "content": "跟踪整改闭环情况", "output": ""}, {"id": 89, "unit": "运营主管（白）", "frequency": "每周", "module": "培训考核", "content": "组织全员或专项技能考核（消防、礼仪、应急）", "output": "《考核成绩单》"}, {"id": 90, "unit": "运营主管（白）", "frequency": "每周", "module": "培训考核", "content": "抽查培训效果", "output": ""}, {"id": 91, "unit": "运营主管（白）", "frequency": "每月", "module": "通勤管理", "content": "员工通勤电瓶车检查", "output": "邮件反馈"}, {"id": 92, "unit": "运营主管（白）", "frequency": "季度", "module": "人员管理", "content": "了解队员工作及生活情况，每季度不少于1次全员谈话沟通", "output": "邮件反馈"}, {"id": 93, "unit": "运营主管（白）", "frequency": "季度", "module": "信息管理", "content": "每季度定时更新人员住址信息，确保人员信息准确", "output": "微信群反馈"}, {"id": 94, "unit": "运营主管（夜）", "frequency": "每日", "module": "人员出勤", "content": "现场出勤人员安排，合理分配出勤人员及岗位，避免频繁变动导致岗位操作不明确", "output": "排班表"}, {"id": 95, "unit": "运营主管（夜）", "frequency": "每日", "module": "工作交接", "content": "每日完成现场白夜班运营主管交接，确保事件跟进有着落", "output": "交接项"}, {"id": 96, "unit": "运营主管（夜）", "frequency": "每日", "module": "数据统计", "content": "每日统计汇总各岗位勤务数据", "output": "交接项"}, {"id": 97, "unit": "运营主管（夜）", "frequency": "每日", "module": "排班管理", "content": "合理安排队员休息，关心队员身体状态，保持队员良好的工作状态", "output": "排班表"}, {"id": 98, "unit": "运营主管（夜）", "frequency": "每日", "module": "岗位巡查", "content": "每日各岗位巡查至少1次，包括检查人员岗位操作、执勤记录本填写、岗位5S情况等", "output": "巡查报告"}, {"id": 99, "unit": "运营主管（夜）", "frequency": "每日", "module": "岗位巡查", "content": "检查岗位物资使用情况，宣导队员爱护岗位执勤物资，正常损坏及时换新", "output": "巡查报告"}, {"id": 100, "unit": "运营主管（夜）", "frequency": "每日", "module": "周期性工作", "content": "每日周期性工作完成情况反馈，（含队员岗位操作情况检查、夜班报岗制度流程、应急响应等）", "output": "每日周期性工作"}, {"id": 101, "unit": "运营主管（夜）", "frequency": "每日", "module": "系统检查", "content": "Orbit系统每日清点", "output": "巡查报告"}, {"id": 102, "unit": "运营主管（夜）", "frequency": "每日", "module": "系统检查", "content": "My EHS出门单每日未出统计", "output": "x月x日未出出门单汇总（邮件）"}, {"id": 103, "unit": "运营主管（夜）", "frequency": "每周", "module": "巡检整改", "content": "同甲方值班长对岗位周巡检，针对问题项进行整改", "output": "邮件反馈"}, {"id": 104, "unit": "运营主管（夜）", "frequency": "每月", "module": "通勤管理", "content": "员工通勤电瓶车检查", "output": "邮件反馈"}, {"id": 105, "unit": "运营主管（夜）", "frequency": "季度", "module": "人员管理", "content": "了解队员工作及生活情况，每季度不少于1次全员谈话沟通", "output": "邮件反馈"}, {"id": 106, "unit": "运营主管（夜）", "frequency": "季度", "module": "信息管理", "content": "每季度定时更新人员住址信息，确保人员信息准确", "output": "微信群反馈"}, {"id": 107, "unit": "运营主管（夜）", "frequency": "按需", "module": "人员留存", "content": "了解离职队员离职原因，减少人员离职率", "output": "人员现场谈话"}, {"id": 108, "unit": "运营主管（夜）", "frequency": "按需", "module": "纪律宣贯", "content": "定期宣贯岗位职责及纪律，杜绝安保吃拿卡要等违规行为", "output": "巡查报告"}, {"id": 109, "unit": "运营主管（夜）", "frequency": "按需", "module": "应急响应", "content": "带领队员迅速响应厂内应急事件，对应急事件进行初步处置，及时跟进应急处理事件结果", "output": "事件报告"}, {"id": 110, "unit": "运营主管（夜）", "frequency": "按需", "module": "执勤物资", "content": "及时给新队员配齐岗位执勤必备物资（如对讲机耳机、肩闪等）", "output": "巡查报告"}, {"id": 111, "unit": "运营主管（夜）", "frequency": "按需", "module": "权限统计", "content": "根据岗位分配统计人员权限，保证现场勤务正常", "output": "微信群反馈"}, {"id": 112, "unit": "运营主管（夜）", "frequency": "按需", "module": "应急演练", "content": "根据现场情况组织应急演练，强化人员应急处置能力", "output": "演练报告"}, {"id": 113, "unit": "运营主管（夜）", "frequency": "按需", "module": "人员上岗", "content": "入职新队员安排进行老队员带教，保证新队员快速掌握岗位操作", "output": "周期性工作"}, {"id": 114, "unit": "仓库主管（白）", "frequency": "每日", "module": "出勤人数点名", "content": "各库区点名及转发上班出勤人员照片", "output": ""}, {"id": 115, "unit": "仓库主管（白）", "frequency": "每日", "module": "考勤", "content": "当天考勤以及出勤照片上传公司", "output": ""}, {"id": 116, "unit": "仓库主管（白）", "frequency": "每日", "module": "班次", "content": "排第二天出勤人员班次", "output": ""}, {"id": 117, "unit": "仓库主管（白）", "frequency": "每日", "module": "特充实课题", "content": "每周四回收特充实培训签到表", "output": ""}, {"id": 118, "unit": "仓库主管（白）", "frequency": "每周", "module": "临时车证人证", "content": "每周统计证件是否有丢失", "output": ""}, {"id": 119, "unit": "仓库主管（白）", "frequency": "每周", "module": "交接违规事项", "content": "每周六进行电瓶车有无违规骑行检查", "output": ""}, {"id": 120, "unit": "仓库主管（白）", "frequency": "每月", "module": "单据整理", "content": "每个月各库区单据进行整理跟ACC对接入库", "output": ""}, {"id": 121, "unit": "仓库主管（白）", "frequency": "每月", "module": "代步工具安全隐患", "content": "每月检查电瓶车是否安全", "output": ""}, {"id": 122, "unit": "仓库主管（白）", "frequency": "每月", "module": "工卡权限", "content": "每月15号进行全员刷一次门禁。避免工卡权限关闭。", "output": ""}, {"id": 123, "unit": "仓库主管（白）", "frequency": "季度", "module": "技能培训", "content": "织组一次防爆，消防，讨薪演练。", "output": ""}, {"id": 124, "unit": "仓库主管（白）", "frequency": "每日", "module": "日常巡查", "content": "根据各库区岗位操作流程是否落实执行。", "output": ""}, {"id": 125, "unit": "仓库主管（白）", "frequency": "每日", "module": "日常巡查", "content": "处理各库区现场大小事务。", "output": ""}, {"id": 126, "unit": "仓库主管（白）", "frequency": "每日", "module": "日常巡查", "content": "每天两次巡查报告", "output": ""}, {"id": 127, "unit": "仓库主管（白）", "frequency": "每日", "module": "日常巡查", "content": "跟进各库区平板，手机读卡器系统是否正常操作。", "output": ""}, {"id": 128, "unit": "仓库主管（白）", "frequency": "每日", "module": "日常巡查", "content": "夕会传达各库区更新的事宜，同时做好上级领导夕会上要求落实到各库区。", "output": ""}, {"id": 129, "unit": "仓库主管（白）", "frequency": "每日", "module": "日常巡查", "content": "核实酒精测试仪及记录仪时间和日期是否准确。", "output": ""}, {"id": 130, "unit": "仓库主管（白）", "frequency": "每日", "module": "日常巡查", "content": "核实当天的电子出门单审批情况。", "output": ""}, {"id": 131, "unit": "仓库主管（白）", "frequency": "每日", "module": "日常巡查", "content": "根据当天现场事宜做好交接。", "output": ""}, {"id": 132, "unit": "仓库主管（白）", "frequency": "每日", "module": "现场日常管理", "content": "按时到岗，做好交接班，核对值班记录，装备，监控设备是否正常。", "output": ""}, {"id": 133, "unit": "仓库主管（白）", "frequency": "每日", "module": "现场日常管理", "content": "按规定路线对厂区/小区/楼宇进行巡逻，检查门窗，消防设施，车辆停放，可疑人员等情况，做好巡逻记录。", "output": ""}, {"id": 134, "unit": "仓库主管（白）", "frequency": "每日", "module": "现场日常管理", "content": "值守门岗，对进出人员，车辆进行登记，核实，维护出入口秩序。", "output": ""}, {"id": 135, "unit": "仓库主管（白）", "frequency": "每日", "module": "现场日常管理", "content": "实时查看监控画面，发现异常及时上报并处理。", "output": ""}, {"id": 136, "unit": "仓库主管（白）", "frequency": "每日", "module": "现场日常管理", "content": "保持岗位卫生，整理安保器材，确保应急物品齐全。", "output": ""}, {"id": 137, "unit": "仓库主管（白）", "frequency": "每日", "module": "现场日常管理", "content": "下班前做好当日值班记录，与下一班人员详细交接。", "output": ""}, {"id": 138, "unit": "仓库主管（白）", "frequency": "每周", "module": "日常设备检查及巡检", "content": "全面检查消防器材(灭火器，消防栓，应急灯)是否完好有效。", "output": ""}, {"id": 139, "unit": "仓库主管（白）", "frequency": "每周", "module": "日常设备检查及巡检", "content": "对监控设备，对讲机，警棍，手电筒等装备进行检查，充电，保养。", "output": ""}, {"id": 140, "unit": "仓库主管（白）", "frequency": "每周", "module": "日常设备检查及巡检", "content": "清理巡逻路线杂物，排查安全死角，消除隐患。", "output": ""}, {"id": 141, "unit": "仓库主管（白）", "frequency": "每周", "module": "日常设备检查及巡检", "content": "参加班组例会，汇报本周情况，学习安保制度和应急流程。", "output": ""}, {"id": 142, "unit": "仓库主管（白）", "frequency": "每周", "module": "日常设备检查及巡检", "content": "整理本周值班台账，登记记录，统一归档。", "output": ""}, {"id": 143, "unit": "仓库主管（白）", "frequency": "每周", "module": "打点数据", "content": "每周四各库区白夜打点数据在警务室提取。", "output": ""}, {"id": 144, "unit": "仓库主管（白）", "frequency": "每周", "module": "特充实课题", "content": "每周四回收特充实培训签到表", "output": ""}, {"id": 145, "unit": "仓库主管（白）", "frequency": "每周", "module": "临时车证人证", "content": "每周统计证件是否有丢失", "output": ""}, {"id": 146, "unit": "仓库主管（白）", "frequency": "每周", "module": "交接违规事项", "content": "每周六进行电瓶车有无违规骑行检查", "output": ""}, {"id": 147, "unit": "仓库主管（白）", "frequency": "每月", "module": "安全巡查及改进", "content": "配合开展月度安全大检查，对重点部位配（电室，仓库，消防通道)全面排查。", "output": ""}, {"id": 148, "unit": "仓库主管（白）", "frequency": "每月", "module": "安全巡查及改进", "content": "参与消防演练或应急处置演练，熟悉预案流程。", "output": ""}, {"id": 149, "unit": "仓库主管（白）", "frequency": "每月", "module": "安全巡查及改进", "content": "检查车辆道闸，门禁系统，监控存储是否正常。", "output": ""}, {"id": 150, "unit": "仓库主管（白）", "frequency": "每月", "module": "安全巡查及改进", "content": "总结本月安保工作情况，上报发现的问题及改进建议。", "output": ""}, {"id": 151, "unit": "仓库主管（白）", "frequency": "每月", "module": "安全巡查及改进", "content": "对安保值班室卫生进行彻底大扫除。", "output": ""}, {"id": 152, "unit": "仓库主管（白）", "frequency": "季度", "module": "同库联动", "content": "参与季度安全工作会议，汇报辖区安全形势。", "output": ""}, {"id": 153, "unit": "仓库主管（白）", "frequency": "季度", "module": "同库联动", "content": "配合开展全面消防安全隐患排查。", "output": ""}, {"id": 154, "unit": "仓库主管（白）", "frequency": "季度", "module": "同库联动", "content": "更新应急物资，检查过期或损坏器材。", "output": ""}, {"id": 155, "unit": "仓库主管（白）", "frequency": "季度", "module": "同库联动", "content": "加强重点时段，重动期间安保部署与巡锣。", "output": ""}, {"id": 156, "unit": "仓库主管（白）", "frequency": "年度", "module": "总结", "content": "全年安保工作总结，梳理事件，隐患，处置情况。", "output": ""}, {"id": 157, "unit": "仓库主管（白）", "frequency": "年度", "module": "总结", "content": "参加年度安全培训，提升应急处置，礼仪规范，消防知识。", "output": ""}, {"id": 158, "unit": "仓库主管（白）", "frequency": "年度", "module": "总结", "content": "制定下一年度日常巡逻，门岗管理，应急防范工作计划。", "output": ""}, {"id": 159, "unit": "仓库主管（夜）", "frequency": "每日", "module": "出入库管控", "content": "严格审核车辆、人员、物资出入库表单", "output": "《出入库核查记录》"}, {"id": 160, "unit": "仓库主管（夜）", "frequency": "每日", "module": "出入库管控", "content": "监督装卸区秩序，防止违规操作", "output": "《出入库核查记录》"}, {"id": 161, "unit": "仓库主管（夜）", "frequency": "每日", "module": "出入库管控", "content": "检查高价值物资存放区安全", "output": "《出入库核查记录》"}, {"id": 162, "unit": "仓库主管（夜）", "frequency": "每日", "module": "物资管理", "content": "检查至少两个库区岗位物资（包括执勤设备、安保八大件等）", "output": "《巡查报告》"}, {"id": 163, "unit": "仓库主管（夜）", "frequency": "每日", "module": "岗位巡查", "content": "每天不少于巡查2个库区，检查在岗队员执勤状态及岗位操作流程", "output": "《巡查报告》"}, {"id": 164, "unit": "仓库主管（夜）", "frequency": "每日", "module": "重点巡查", "content": "重点巡查仓库防火、防盗设施（监控、门禁、灭火器）", "output": "《仓库巡查日报》"}, {"id": 165, "unit": "仓库主管（夜）", "frequency": "每日", "module": "重点巡查", "content": "检查库存区域是否存在违规堆放、通道堵塞", "output": "《仓库巡查日报》"}, {"id": 166, "unit": "仓库主管（夜）", "frequency": "每周", "module": "库存安全盘点", "content": "联合仓库管理员进行周度重点物资抽查盘点", "output": "《盘点差异报告》"}, {"id": 167, "unit": "仓库主管（夜）", "frequency": "每周", "module": "库存安全盘点", "content": "检查库存区域安全状况", "output": "《盘点差异报告》"}, {"id": 168, "unit": "仓库主管（夜）", "frequency": "每周", "module": "库存安全盘点", "content": "处理盘点差异", "output": "《盘点差异报告》"}, {"id": 169, "unit": "仓库主管（夜）", "frequency": "每周", "module": "骑行安全", "content": "每周各库区抽查电瓶车骑行安全汇总反馈", "output": "《周的周期性工作》"}, {"id": 170, "unit": "仓库主管（夜）", "frequency": "每周", "module": "车辆管理", "content": "审核外来车辆通行证，规划车辆停放路线", "output": "《车辆管理台账》"}, {"id": 171, "unit": "仓库主管（夜）", "frequency": "每周", "module": "车辆管理", "content": "处理车辆违停、违规进入事件", "output": "《车辆管理台账》"}, {"id": 172, "unit": "仓库主管（夜）", "frequency": "每周", "module": "车辆管理", "content": "检查车辆装载安全", "output": "《车辆管理台账》"}, {"id": 173, "unit": "仓库主管（夜）", "frequency": "每月", "module": "设施维保", "content": "检查仓库安防设施（监控、报警系统、消防系统）运行状态", "output": "《设施维保记录》"}, {"id": 174, "unit": "仓库主管（夜）", "frequency": "每月", "module": "设施维保", "content": "联系维保单位进行月度维护保养", "output": "《设施维保记录》"}, {"id": 175, "unit": "仓库主管（夜）", "frequency": "每月", "module": "流程优化", "content": "分析本月出入库异常数据（差错率、等待时间）", "output": "《月度运营分析报告》"}, {"id": 176, "unit": "仓库主管（夜）", "frequency": "每月", "module": "流程优化", "content": "提出流程优化建议（如优化动线、增加人手）", "output": "《月度运营分析报告》"}, {"id": 177, "unit": "仓库主管（夜）", "frequency": "每月", "module": "单据回收", "content": "每月回收各库区单据，整理回收至西一门仓库", "output": ""}, {"id": 178, "unit": "仓库主管（夜）", "frequency": "季度", "module": "专项演练", "content": "组织仓库专项应急演练（货物倒塌、仓库火灾）", "output": "《演练总结报告》"}, {"id": 179, "unit": "仓库主管（夜）", "frequency": "季度", "module": "专项演练", "content": "评估物资存储安全标准执行情况", "output": "《演练总结报告》"}, {"id": 180, "unit": "仓库主管（夜）", "frequency": "季度", "module": "合规审计", "content": "配合甲方进行季度/年度仓库安全合规审计", "output": "《合规审计报告》"}, {"id": 181, "unit": "仓库主管（夜）", "frequency": "季度", "module": "合规审计", "content": "整改审计发现的问题项", "output": "《合规审计报告》"}, {"id": 182, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "与对接人沟通日常工作", "output": "后勤保障"}, {"id": 183, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "根据现场生产情况进行人员调整", "output": "后勤保障"}, {"id": 184, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "物品物资协调", "output": "后勤保障"}, {"id": 185, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "白夜交接班针对在职期间出现的问题进行分享", "output": "后勤保障"}, {"id": 186, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "每日人员出勤情况核对", "output": "后勤保障"}, {"id": 187, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "现场人员面试补充", "output": "后勤保障"}, {"id": 188, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "早/晚不定时岗位巡查抽查", "output": "后勤保障"}, {"id": 189, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "工作餐问题协调反馈", "output": "后勤保障"}, {"id": 190, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "紧急事务处置反馈", "output": "后勤保障"}, {"id": 191, "unit": "驻场经理", "frequency": "每日", "module": "日常工作", "content": "岗位出勤排班", "output": "后勤保障"}, {"id": 192, "unit": "驻场经理", "frequency": "每周", "module": "会议反馈", "content": "每周会议、双周工作内容、问题汇总汇报", "output": "周情况反馈"}, {"id": 193, "unit": "驻场经理", "frequency": "每周", "module": "会议反馈", "content": "每周进行一次夜间稽查", "output": "周情况反馈"}, {"id": 194, "unit": "驻场经理", "frequency": "每周", "module": "会议反馈", "content": "沟通消防队进行消防实操、理论培训", "output": "周情况反馈"}, {"id": 195, "unit": "驻场经理", "frequency": "每周", "module": "会议反馈", "content": "对无人值守闸机、可视门铃进行测试", "output": "周情况反馈"}, {"id": 196, "unit": "驻场经理", "frequency": "每周", "module": "会议反馈", "content": "每逢5、15、25进行宿舍卫生清洁打扫，保障舒适住宿环境", "output": "周情况反馈"}, {"id": 197, "unit": "驻场经理", "frequency": "每周", "module": "会议反馈", "content": "每周二工作会议内容反馈对接人", "output": "周情况反馈"}, {"id": 198, "unit": "驻场经理", "frequency": "每周", "module": "会议反馈", "content": "主管微信周会（现场支持、问题反馈）", "output": "周情况反馈"}, {"id": 199, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "每月4次夜间巡查", "output": "月度汇总"}, {"id": 200, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "宿舍卫生、安全隐患每月检查反馈", "output": "月度汇总"}, {"id": 201, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "每月电瓶车自检", "output": "月度汇总"}, {"id": 202, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "团队工作汇总月报次月10号前邮件反馈对接人审核并在12号前完成现场汇报", "output": "月度汇总"}, {"id": 203, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "月出勤考勤核对反馈震浩及反馈公司", "output": "月度汇总"}, {"id": 204, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "追溯公司发票回执", "output": "月度汇总"}, {"id": 205, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "每月15号库区白夜班进行全员工卡权限刷卡", "output": "月度汇总"}, {"id": 206, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "厂区周边杂草排查清洁", "output": "月度汇总"}, {"id": 207, "unit": "驻场经理", "frequency": "每月", "module": "工作汇报", "content": "月度公司述职沟通反馈", "output": "月度汇总"}, {"id": 208, "unit": "驻场经理", "frequency": "季度", "module": "工作汇报", "content": "季度情况汇总形成报告，同甲方及公司进行分享，同步制定下季度工作计划", "output": "季度汇总"}, {"id": 209, "unit": "驻场经理", "frequency": "每月", "module": "全面复盘", "content": "主持月度经营分析会", "output": "《月度经营分析报告》"}, {"id": 210, "unit": "驻场经理", "frequency": "每月", "module": "全面复盘", "content": "复盘KPI完成情况（安全、服务、成本）", "output": "《月度经营分析报告》"}, {"id": 211, "unit": "驻场经理", "frequency": "每月", "module": "全面复盘", "content": "制定下月改进措施", "output": "《月度经营分析报告》"}, {"id": 212, "unit": "驻场经理", "frequency": "每月", "module": "人事决策", "content": "决定关键岗位（主管、领班）的任免/晋升", "output": "《人事任免通知》"}, {"id": 213, "unit": "驻场经理", "frequency": "每月", "module": "人事决策", "content": "核心人员招聘决策", "output": "《人事任免通知》"}, {"id": 214, "unit": "驻场经理", "frequency": "每月", "module": "人事决策", "content": "处理重大劳动纠纷", "output": "《人事任免通知》"}, {"id": 215, "unit": "驻场经理", "frequency": "每月", "module": "合同管理", "content": "审核月度服务费用结算单", "output": "《合同结算单》"}, {"id": 216, "unit": "驻场经理", "frequency": "每月", "module": "合同管理", "content": "处理合同变更或续签事宜", "output": "《合同结算单》"}, {"id": 217, "unit": "驻场经理", "frequency": "每月", "module": "合同管理", "content": "维护客户关系", "output": "《合同结算单》"}, {"id": 218, "unit": "驻场经理", "frequency": "季度", "module": "战略规划", "content": "制定下一季度/年度工作计划", "output": "《年度/季度计划书》"}, {"id": 219, "unit": "驻场经理", "frequency": "季度", "module": "战略规划", "content": "优化人员配置模型", "output": "《年度/季度计划书》"}, {"id": 220, "unit": "驻场经理", "frequency": "季度", "module": "战略规划", "content": "更新应急预案", "output": "《年度/季度计划书》"}, {"id": 221, "unit": "驻场经理", "frequency": "季度", "module": "危机演练", "content": "组织全项目级别的年度综合应急演练", "output": "《演练总结报告》"}, {"id": 222, "unit": "驻场经理", "frequency": "季度", "module": "危机演练", "content": "评估演练效果，完善应急体系", "output": "《演练总结报告》"}]; saveData(); }
+            if (savedHistory) { completionHistory = JSON.parse(savedHistory); }
+        }
+
+        function saveData() { localStorage.setItem('fuluote_tasks_v5', JSON.stringify(tasksData)); showSaveIndicator(); }
+        function saveHistory() { localStorage.setItem('fuluote_history_v5', JSON.stringify(completionHistory)); }
+        function showSaveIndicator() { const el = document.getElementById('saveIndicator'); el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2000); }
+        function updateTimeDisplay() { const now = new Date(); document.getElementById('currentTime').textContent = now.toLocaleString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+
+        function getShift(unit) {
+            if (unit.includes('（白）') || unit.includes('白班')) return 'day';
+            if (unit.includes('（夜）') || unit.includes('夜班')) return 'night';
+            return 'general';
+        }
+
+        function getShiftLabel(shift) {
+            if (shift === 'day') return '☀️ 白班';
+            if (shift === 'night') return '🌙 夜班';
+            return '📋 通用';
+        }
+
+        function initFilters() {
+            const units = [...new Set(tasksData.map(t => t.unit))].filter(u => u);
+            const unitSelect = document.getElementById('unitFilter');
+            units.forEach(u => { const opt = document.createElement('option'); opt.value = u; opt.textContent = u; unitSelect.appendChild(opt); });
+        }
+
+        function getCurrentDateKey() { const date = new Date(currentDate); date.setDate(date.getDate() + currentDateOffset); return date.toISOString().split('T')[0]; }
+        function getWeekKey(date) { const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1)); const weekNum = Math.ceil((((d - yearStart) / 86400000) + 1) / 7); return d.getUTCFullYear() + '-W' + String(weekNum).padStart(2, '0'); }
+        function getMonthKey(date) { return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0'); }
+        function getQuarterKey(date) { const q = Math.floor(date.getMonth() / 3) + 1; return date.getFullYear() + '-Q' + q; }
+        function getYearKey(date) { return String(date.getFullYear()); }
+
+        function getPeriodKey(task, date) {
+            if (task.frequency === '每日') return getCurrentDateKey();
+            if (task.frequency === '每周') return getWeekKey(date);
+            if (task.frequency === '每月') return getMonthKey(date);
+            if (task.frequency === '季度') return getQuarterKey(date);
+            if (task.frequency === '年度') return getYearKey(date);
+            return getCurrentDateKey();
+        }
+
+        function isTaskCompleted(taskId, periodKey) { if (!completionHistory[taskId]) return false; return completionHistory[taskId][periodKey] === true; }
+        function getCompletionDate(taskId, periodKey) { if (!completionHistory[taskId]) return null; return completionHistory[taskId][periodKey + '_date'] || null; }
+
+        function setTaskCompletion(taskId, periodKey, completed) {
+            if (!completionHistory[taskId]) completionHistory[taskId] = {};
+            completionHistory[taskId][periodKey] = completed;
+            if (completed) { completionHistory[taskId][periodKey + '_date'] = new Date().toISOString(); }
+            else { delete completionHistory[taskId][periodKey + '_date']; }
+            saveHistory();
+        }
+
+        function getWeekNumber(date) { const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(), 0, 1))) / 86400000) + 1) / 7); }
+
+        function getDateRange() {
+            const timeFilter = document.getElementById('timeFilter').value;
+            const date = new Date(currentDate); date.setDate(date.getDate() + currentDateOffset);
+            if (timeFilter === 'daily') return { label: date.toLocaleDateString('zh-CN', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'}) };
+            if (timeFilter === 'weekly') return { label: date.getFullYear() + '年 第' + getWeekNumber(date) + '周' };
+            if (timeFilter === 'monthly') return { label: date.getFullYear() + '年' + (date.getMonth() + 1) + '月' };
+            if (timeFilter === 'quarterly') return { label: date.getFullYear() + '年 第' + (Math.floor(date.getMonth() / 3) + 1) + '季度' };
+            if (timeFilter === 'yearly') return { label: date.getFullYear() + '年' };
+            return null;
+        }
+
+        function onTimeFilterChange() { currentDateOffset = 0; currentDate = new Date(); renderAll(); }
+
+        function filterTasks() {
+            const timeFilter = document.getElementById('timeFilter').value;
+            const unitFilter = document.getElementById('unitFilter').value;
+            const shiftFilter = document.getElementById('shiftFilter').value;
+            const frequencyFilter = document.getElementById('frequencyFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const viewDate = new Date(currentDate); viewDate.setDate(viewDate.getDate() + currentDateOffset);
+            
+            return tasksData.filter(task => {
+                if (timeFilter !== 'all') { const freqMap = {'每日': 'daily', '每周': 'weekly', '每月': 'monthly', '季度': 'quarterly', '年度': 'yearly'}; if (freqMap[task.frequency] !== timeFilter && task.frequency !== '按需') return false; }
+                if (unitFilter !== 'all' && task.unit !== unitFilter) return false;
+                if (shiftFilter !== 'all') {
+                    const taskShift = getShift(task.unit);
+                    if (shiftFilter === 'day' && taskShift !== 'day') return false;
+                    if (shiftFilter === 'night' && taskShift !== 'night') return false;
+                    if (shiftFilter === 'general' && taskShift !== 'general') return false;
+                }
+                if (frequencyFilter !== 'all' && task.frequency !== frequencyFilter) return false;
+                const periodKey = getPeriodKey(task, viewDate);
+                const isCompleted = isTaskCompleted(task.id, periodKey);
+                if (statusFilter === 'completed' && !isCompleted) return false;
+                if (statusFilter === 'pending' && isCompleted) return false;
+                if (search && !task.content.toLowerCase().includes(search) && !task.module.toLowerCase().includes(search)) return false;
+                return true;
+            });
+        }
+
+        function renderAll() { const tasks = filterTasks(); renderStats(tasks); renderUnitProgress(tasks); renderTasks(tasks); updateDateNavigation(); }
+
+        function renderStats(tasks) {
+            const viewDate = new Date(currentDate); viewDate.setDate(viewDate.getDate() + currentDateOffset);
+            let completed = 0; tasks.forEach(t => { const pk = getPeriodKey(t, viewDate); if (isTaskCompleted(t.id, pk)) completed++; });
+            const total = tasks.length;
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('pendingTasks').textContent = total - completed;
+            document.getElementById('completionRate').textContent = (total > 0 ? Math.round((completed / total) * 100) : 0) + '%';
+        }
+
+        function renderUnitProgress(tasks) {
+            const container = document.getElementById('unitProgressContainer');
+            const units = [...new Set(tasks.map(t => t.unit))].filter(u => u);
+            const viewDate = new Date(currentDate); viewDate.setDate(viewDate.getDate() + currentDateOffset);
+            if (units.length === 0) { container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">暂无数据</div>'; return; }
+            container.innerHTML = units.map(unit => {
+                const ut = tasks.filter(t => t.unit === unit); const total = ut.length;
+                let completed = 0; ut.forEach(t => { const pk = getPeriodKey(t, viewDate); if (isTaskCompleted(t.id, pk)) completed++; });
+                const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+                let cls = rate >= 90 ? 'excellent' : rate >= 70 ? 'good' : rate >= 50 ? 'warning' : 'danger';
+                return '<div class="unit-progress"><div class="unit-header"><span class="unit-name">' + unit + '</span><span class="unit-stats">' + completed + '/' + total + ' 已完成</span></div><div class="progress-bar"><div class="progress-fill ' + cls + '" style="width: ' + rate + '%">' + rate + '%</div></div></div>';
+            }).join('');
+        }
+
+        function renderTasks(tasks) {
+            const container = document.getElementById('tasksList');
+            document.getElementById('taskCount').textContent = '共 ' + tasks.length + ' 条任务';
+            if (tasks.length === 0) { container.innerHTML = '<div class="no-tasks"><p>暂无符合条件的任务</p></div>'; return; }
+            const viewDate = new Date(currentDate); viewDate.setDate(viewDate.getDate() + currentDateOffset);
+            
+            container.innerHTML = tasks.map(t => {
+                const pk = getPeriodKey(t, viewDate);
+                const isCompleted = isTaskCompleted(t.id, pk);
+                const completionDate = getCompletionDate(t.id, pk);
+                const shift = getShift(t.unit);
+                const shiftClass = shift === 'day' ? 'day' : shift === 'night' ? 'night' : 'general';
+                
+                let historyHtml = '';
+                if (t.frequency === '每日' && completionHistory[t.id]) {
+                    const dates = Object.keys(completionHistory[t.id]).filter(k => !k.endsWith('_date') && completionHistory[t.id][k] === true).sort().reverse().slice(0, 5);
+                    if (dates.length > 0) historyHtml = '<div class="history-record">📅 近期完成: ' + dates.join(', ') + '</div>';
+                }
+                
+                let completeDateHtml = '';
+                if (isCompleted && completionDate) {
+                    const cd = new Date(completionDate);
+                    completeDateHtml = '<div class="complete-date">✓ 完成于: ' + cd.toLocaleString('zh-CN') + '</div>';
+                }
+                
+                return '<div class="task-card ' + (isCompleted ? 'completed' : '') + '"><div class="task-top"><div class="task-info"><div class="task-badges"><span class="badge badge-unit">' + t.unit + '</span><span class="badge badge-shift ' + shiftClass + '">' + getShiftLabel(shift) + '</span><span class="badge badge-frequency">' + t.frequency + '</span></div><div class="task-module">' + t.module + '</div><div class="task-content">' + t.content + '</div>' + (t.output ? '<div class="task-output">📄 输出物: ' + t.output + '</div>' : '') + completeDateHtml + historyHtml + '</div><div class="task-actions"><button class="btn ' + (isCompleted ? 'btn-danger' : 'btn-success') + '" onclick="toggleComplete(' + t.id + ')">' + (isCompleted ? '↩ 取消' : '✓ 完成') + '</button><button class="btn btn-primary" onclick="openEditModal(' + t.id + ')">详情</button></div></div></div>';
+            }).join('');
+        }
+
+        function updateDateNavigation() {
+            const timeFilter = document.getElementById('timeFilter').value;
+            const nav = document.getElementById('dateNavigation');
+            if (timeFilter === 'all') { nav.style.display = 'none'; return; }
+            nav.style.display = 'block';
+            document.getElementById('dateDisplay').textContent = getDateRange().label;
+        }
+
+        function navigateDate(dir) {
+            const tf = document.getElementById('timeFilter').value;
+            if (tf === 'daily') currentDateOffset += dir;
+            else if (tf === 'weekly') currentDateOffset += dir * 7;
+            else if (tf === 'monthly') currentDate.setMonth(currentDate.getMonth() + dir);
+            else if (tf === 'quarterly') currentDate.setMonth(currentDate.getMonth() + dir * 3);
+            else if (tf === 'yearly') currentDate.setFullYear(currentDate.getFullYear() + dir);
+            renderAll();
+        }
+
+        function goToToday() { currentDateOffset = 0; currentDate = new Date(); renderAll(); }
+
+        function resetFilters() {
+            document.getElementById('timeFilter').value = 'daily';
+            document.getElementById('unitFilter').value = 'all';
+            document.getElementById('shiftFilter').value = 'all';
+            document.getElementById('frequencyFilter').value = 'all';
+            document.getElementById('statusFilter').value = 'all';
+            document.getElementById('searchInput').value = '';
+            goToToday();
+        }
+
+        function toggleComplete(id) {
+            const task = tasksData.find(t => t.id === id);
+            if (!task) return;
+            const viewDate = new Date(currentDate); viewDate.setDate(viewDate.getDate() + currentDateOffset);
+            const pk = getPeriodKey(task, viewDate);
+            const isCompleted = isTaskCompleted(id, pk);
+            setTaskCompletion(id, pk, !isCompleted);
+            renderAll();
+        }
+
+        function openEditModal(id) {
+            const t = tasksData.find(x => x.id === id);
+            if (!t) return;
+            document.getElementById('editTaskId').value = id;
+            document.getElementById('editUnit').value = t.unit;
+            document.getElementById('editShift').value = getShiftLabel(getShift(t.unit));
+            document.getElementById('editFrequency').value = t.frequency;
+            document.getElementById('editModule').value = t.module;
+            document.getElementById('editContent').value = t.content;
+            document.getElementById('editOutput').value = t.output || '';
+            renderTaskHistory(id);
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() { document.getElementById('editModal').classList.remove('active'); }
+
+        function saveTask() {
+            const id = parseInt(document.getElementById('editTaskId').value);
+            const t = tasksData.find(x => x.id === id);
+            if (!t) return;
+            t.content = document.getElementById('editContent').value;
+            t.output = document.getElementById('editOutput').value;
+            saveData();
+            closeEditModal();
+            renderAll();
+        }
+
+        function renderTaskHistory(taskId) {
+            const container = document.getElementById('historyList');
+            const history = completionHistory[taskId];
+            if (!history || Object.keys(history).length === 0) { container.innerHTML = '<div style="color:#999;">暂无完成记录</div>'; return; }
+            const records = [];
+            Object.keys(history).forEach(key => {
+                if (!key.endsWith('_date') && history[key] === true) {
+                    const dateStr = history[key + '_date'];
+                    records.push({ period: key, date: dateStr ? new Date(dateStr).toLocaleString('zh-CN') : key });
+                }
+            });
+            records.sort((a, b) => b.period.localeCompare(a.period));
+            container.innerHTML = records.slice(0, 20).map(r => '<div class="history-item"><span class="date">' + r.period + '</span> - 完成于 ' + r.date + '</div>').join('') || '<div style="color:#999;">暂无完成记录</div>';
+        }
+
+        function exportData() {
+            const data = { tasks: tasksData, history: completionHistory };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '福络特任务数据_' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+        }
+
+        document.getElementById('editModal').addEventListener('click', function(e) { if (e.target === this) closeEditModal(); });
+    </script>
+</body>
+</html>
